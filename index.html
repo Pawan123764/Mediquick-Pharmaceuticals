@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediStock & Pharmacy Store</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .tab-active { border-b-2 border-emerald-600 text-emerald-700 font-semibold; }
+    @media print {
+      body * { visibility: hidden; }
+      #printable-receipt-area, #printable-receipt-area * { visibility: visible; }
+      #printable-receipt-area { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+  <!-- Floating Cart Added Notification Popup -->
+  <div id="cart-popup-alert" class="fixed top-20 right-4 sm:right-8 z-50 hidden bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-400 flex items-center gap-3 transform transition-all duration-300 translate-y-[-10px] opacity-0 max-w-sm">
+    <div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+    </div>
+    <div class="flex-grow">
+      <p class="font-bold text-xs" id="popup-med-name">Added to Cart!</p>
+      <p class="text-[11px] text-emerald-100" id="popup-med-detail">Item added successfully</p>
+    </div>
+    <button id="popup-view-cart-btn" class="bg-white text-emerald-800 hover:bg-emerald-50 px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm transition whitespace-nowrap">
+      View Cart 🛒
+    </button>
+  </div>
+
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Header -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        
+        <!-- Shop Branding & Info -->
+        <div class="flex items-center gap-3">
+          <div class="w-11 h-11 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-md shadow-emerald-200 flex-shrink-0">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 id="header-shop-name" class="text-xl font-bold text-slate-900 tracking-tight">Sanjivani Medical & Pharmacy</h1>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">Verified Chemist</span>
+            </div>
+            <p id="header-shop-address" class="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+              Station Road, Near Main Chowk, Bihar
+            </p>
+          </div>
+        </div>
+
+        <!-- Navigation & Quick WhatsApp Action -->
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <!-- View Switcher Tabs -->
+          <div class="bg-slate-100 p-1 rounded-lg flex items-center border border-slate-200">
+            <button id="nav-customer-btn" class="px-3.5 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-800 shadow-sm transition">
+              Customer Store
+            </button>
+            <button id="nav-owner-btn" class="px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-md transition flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+              <span id="nav-owner-label">Owner Portal</span>
+            </button>
+          </div>
+
+          <!-- Customer Cart Button -->
+          <button id="open-cart-btn" class="inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            <span>Cart (<span id="header-cart-count">0</span>)</span>
+            <span id="header-cart-total" class="hidden sm:inline text-emerald-400 font-mono">₹0.00</span>
+          </button>
+
+          <!-- Direct WhatsApp Button -->
+          <a id="header-wa-btn" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.54 1.861.819 2.796.819 3.18 0 5.767-2.587 5.767-5.766.001-3.182-2.585-5.766-5.767-5.766zm9.969 5.766c0 5.518-4.482 10-10 10-1.748 0-3.385-.45-4.815-1.242l-5.185 1.358 1.381-5.052c-.886-1.488-1.381-3.228-1.381-5.064 0-5.518 4.482-10 10-10s10 4.482 10 10z"/>
+            </svg>
+            <span>WhatsApp Shop</span>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+
+    <!-- ========================================== -->
+    <!-- CUSTOMER VIEW (STOREFRONT) -->
+    <!-- ========================================== -->
+    <section id="customer-view" class="space-y-6">
+      
+      <!-- Banner / Price Mode Selector -->
+      <div class="bg-gradient-to-r from-emerald-700 via-teal-700 to-cyan-800 rounded-2xl p-5 sm:p-6 text-white shadow-md relative overflow-hidden">
+        <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/30 text-emerald-100 text-xs font-medium mb-2 border border-emerald-400/30">
+              <span>● Live Pharmacy Inventory</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-bold tracking-tight">Genuine Medicines & Healthcare</h2>
+            <p class="text-emerald-100 text-sm mt-1 max-w-xl">Check verified stock, batch numbers, expiry dates, and discounts. Order directly on WhatsApp for retail or bulk wholesale supply.</p>
+          </div>
+
+          <!-- Retail vs Wholesale Switch Card -->
+          <div class="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
+            <span class="text-xs uppercase tracking-wider font-semibold text-emerald-200">Customer Mode:</span>
+            <div class="bg-slate-900/40 p-1 rounded-lg flex items-center gap-1">
+              <button id="mode-retail-btn" class="px-3.5 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-900 shadow transition">
+                🛍️ Retail (Small Orders)
+              </button>
+              <button id="mode-wholesale-btn" class="px-3.5 py-1.5 text-xs font-medium text-emerald-100 hover:text-white rounded-md transition">
+                📦 Wholesale (Bulk Orders)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Prescription Upload & WhatsApp Banner -->
+      <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-start gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-900">Have a Doctor's Prescription Slip?</h3>
+            <p class="text-xs text-slate-600 mt-0.5">Upload or take a photo of your prescription. Our licensed pharmacist will review it, check batch availability, and message you the total bill via WhatsApp.</p>
+          </div>
+        </div>
+        <button id="open-prescription-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-sm transition whitespace-nowrap flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+          Upload Prescription on WhatsApp
+        </button>
+      </div>
+
+      <!-- Mode Information Alert -->
+      <div id="mode-info-banner" class="bg-blue-50 border border-blue-200 rounded-xl p-3.5 flex items-center justify-between text-xs text-blue-800">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <span id="mode-banner-text">Viewing <strong>Retail Prices</strong>. Individual strip/bottle pricing with standard customer discounts.</span>
+        </div>
+        <span class="text-slate-400 text-[11px] hidden sm:inline">Updated Today</span>
+      </div>
+
+      <!-- Search, Filter & Controls -->
+      <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row gap-3">
+        <div class="relative flex-grow">
+          <svg class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          <input id="search-input" type="text" placeholder="Search medicine name, salt, company, or batch number..." 
+                 class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <select id="filter-category" class="px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <option value="all">All Categories</option>
+            <option value="Pain & Fever">Pain & Fever</option>
+            <option value="Antibiotics">Antibiotics</option>
+            <option value="Antacids & Gastro">Antacids & Gastro</option>
+            <option value="Diabetes Care">Diabetes Care</option>
+            <option value="Cardiology">Cardiology</option>
+            <option value="Vitamins & Immunity">Vitamins & Immunity</option>
+          </select>
+
+          <button id="reset-filters-btn" class="px-3 py-2 text-xs text-slate-600 hover:text-slate-900 border border-slate-200 rounded-lg hover:bg-slate-50 transition">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Medicine Product Grid -->
+      <div id="medicine-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rendered dynamically by JS -->
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-state" class="hidden text-center py-12 bg-white rounded-xl border border-slate-200">
+        <svg class="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3 class="text-base font-semibold text-slate-800">No medicines found</h3>
+        <p class="text-xs text-slate-500 mt-1">Try adjusting your search query or category filter.</p>
+      </div>
+
+      <!-- Customer Reviews Section -->
+      <div class="mt-10 pt-8 border-t border-slate-200">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h3 class="text-lg font-bold text-slate-900">Verified Customer Reviews</h3>
+            <p class="text-xs text-slate-500">What local doctors, clinics, and patients say about our shop</p>
+          </div>
+          <button id="add-review-modal-btn" class="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition">
+            + Write a Review
+          </button>
+        </div>
+
+        <div id="reviews-container" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ========================================== -->
+    <!-- OWNER MANAGEMENT PORTAL -->
+    <!-- ========================================== -->
+    <section id="owner-view" class="hidden space-y-6">
+      
+      <!-- Owner Header Banner -->
+      <div class="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2 mb-2">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+              ● Owner Admin Console (Unlocked)
+            </span>
+            <span class="text-xs text-slate-400">Security PIN Protected</span>
+          </div>
+          <h2 class="text-2xl font-bold tracking-tight">Stock, Pricing & Shop Settings</h2>
+          <p class="text-xs text-slate-400 mt-1">Manage medicine batches, expiry tracking, wholesale discounts, billing and store details.</p>
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <button id="open-billing-modal-btn" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            Generate Cash Memo
+          </button>
+          <button id="open-add-med-modal" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Add New Medicine Stock
+          </button>
+          <button id="lock-owner-btn" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition flex items-center gap-1.5">
+            <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+            Lock & Exit
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Metrics Grid -->
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <button id="filter-metric-all" class="text-left bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-emerald-500 transition">
+          <p class="text-xs text-slate-500 font-medium">Total Medicines</p>
+          <p id="stat-total-medicines" class="text-2xl font-bold text-slate-900 mt-1">0</p>
+          <span class="text-[10px] text-slate-400">Click to view all</span>
+        </button>
+        <button id="filter-metric-low" class="text-left bg-white p-4 rounded-xl border border-amber-200 bg-amber-50/30 shadow-sm hover:border-amber-500 transition">
+          <p class="text-xs text-amber-800 font-medium">Critical Low Stock (&lt; 10)</p>
+          <p id="stat-low-stock" class="text-2xl font-bold text-amber-600 mt-1">0</p>
+          <span class="text-[10px] text-amber-700">Click to filter low stock</span>
+        </button>
+        <button id="filter-metric-exp" class="text-left bg-white p-4 rounded-xl border border-rose-200 bg-rose-50/30 shadow-sm hover:border-rose-500 transition">
+          <p class="text-xs text-rose-800 font-medium">Near Expiry (&lt; 60 days)</p>
+          <p id="stat-near-expiry" class="text-2xl font-bold text-rose-600 mt-1">0</p>
+          <span class="text-[10px] text-rose-700">Click to filter near expiry</span>
+        </button>
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <p class="text-xs text-slate-500 font-medium">Customer Reviews</p>
+          <p id="stat-reviews" class="text-2xl font-bold text-emerald-600 mt-1">0</p>
+          <span class="text-[10px] text-slate-400">Total verified feedbacks</span>
+        </div>
+      </div>
+
+      <!-- Shop Settings & Security PIN Form -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 mb-3 flex items-center gap-2">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+          Edit Medical Store Contact Details & Security PIN
+        </h3>
+        <form id="shop-settings-form" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Shop Name</label>
+            <input id="edit-shop-name" type="text" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">WhatsApp Mobile Number</label>
+            <input id="edit-shop-phone" type="text" placeholder="e.g. 919876543210" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+            <span class="text-[10px] text-slate-400">Include country code (e.g. 91)</span>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Full Shop Address</label>
+            <input id="edit-shop-address" type="text" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none" required>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Owner Security PIN</label>
+            <input id="edit-shop-pin" type="password" maxlength="8" placeholder="Current PIN: 1234" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <span class="text-[10px] text-slate-400">Used to unlock Owner Portal</span>
+          </div>
+          <div class="md:col-span-4 flex justify-end">
+            <button type="submit" class="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg transition">
+              Save Shop Details
+            </button>
+          </div>
+        </form>
+      </div>
+
+      
+      <!-- Excel Bulk Import & Inventory Export Section -->
+      <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Auto MS Excel (.xlsx) Stock Import & Export
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">Upload your distributor/shop Excel sheet to automatically import all medicine stocks, or download your current inventory.</p>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button id="download-excel-template-btn" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-300 transition flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+              Download Sample Excel Template
+            </button>
+            <button id="export-excel-btn" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-lg border border-emerald-300 transition flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+              Export Inventory to Excel (.xlsx)
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+          <div class="md:col-span-2">
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Select Excel Spreadsheet (.xlsx, .xls, .csv)</label>
+            <input type="file" id="excel-file-input" accept=".xlsx,.xls,.csv" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer border border-slate-200 rounded-lg p-1.5 bg-slate-50">
+            <p class="text-[11px] text-slate-400 mt-1">Headers recognized: <em>Medicine Name, Company, Category, Batch No, Mfg Date, Exp Date, MRP, Retail Discount, Wholesale Discount, Wholesale MOQ, Stock Units</em></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="import-excel-btn" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+              Upload & Import Excel Stock
+            </button>
+          </div>
+        </div>
+
+        <!-- Excel Preview Box -->
+        <div id="excel-preview-box" class="hidden mt-4 pt-3 border-t border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="text-xs font-bold text-slate-800" id="excel-preview-title">Excel File Ready for Import</h4>
+            <span id="excel-preview-badge" class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">0 rows</span>
+          </div>
+          <div class="overflow-x-auto max-h-48 border border-slate-200 rounded-lg">
+            <table class="w-full text-left text-[11px]">
+              <thead class="bg-slate-100 text-slate-600 uppercase text-[10px] sticky top-0">
+                <tr>
+                  <th class="py-1.5 px-3">Medicine</th>
+                  <th class="py-1.5 px-2">Company</th>
+                  <th class="py-1.5 px-2">Batch</th>
+                  <th class="py-1.5 px-2">Exp</th>
+                  <th class="py-1.5 px-2">MRP</th>
+                  <th class="py-1.5 px-2">Stock</th>
+                </tr>
+              </thead>
+              <tbody id="excel-preview-tbody" class="divide-y divide-slate-100">
+                <!-- Rows populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+          <div class="mt-3 flex justify-end gap-2">
+            <button id="cancel-excel-preview-btn" class="px-3 py-1.5 text-xs text-slate-600 hover:text-slate-800 border border-slate-300 rounded-lg">Cancel</button>
+            <button id="confirm-excel-import-btn" class="px-4 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm">Confirm & Save to Inventory</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Medicine Stock Table -->
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="px-5 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Current Medicine Inventory</h3>
+            <p id="owner-table-filter-label" class="text-xs text-slate-500">Showing all medicines</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="view-all-table-btn" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 transition">
+              Show All
+            </button>
+            <button id="view-low-table-btn" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-50 text-amber-800 hover:bg-amber-100 transition border border-amber-200">
+              Low Stock (&lt; 10)
+            </button>
+            <button id="view-exp-table-btn" class="px-2.5 py-1 text-xs font-semibold rounded-md bg-rose-50 text-rose-800 hover:bg-rose-100 transition border border-rose-200">
+              Near Expiry
+            </button>
+          </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider text-[11px] border-b border-slate-200">
+              <tr>
+                <th class="py-3 px-4">Medicine & Company</th>
+                <th class="py-3 px-4">Batch No</th>
+                <th class="py-3 px-4">Mfg / Expiry</th>
+                <th class="py-3 px-4">MRP</th>
+                <th class="py-3 px-4">Retail Disc.</th>
+                <th class="py-3 px-4">Wholesale Disc. (MOQ)</th>
+                <th class="py-3 px-4">Stock Qty</th>
+                <th class="py-3 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="owner-table-body" class="divide-y divide-slate-200">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL: CUSTOMER CART & COMBINED ORDER -->
+  <!-- ========================================== -->
+  <div id="cart-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl flex flex-col max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <span>🛒 Your Medicine Order Cart</span>
+            <span id="cart-mode-badge" class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">Retail</span>
+          </h3>
+          <p class="text-xs text-slate-500">Review selected items, quantities, and savings</p>
+        </div>
+        <button id="close-cart-modal" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <!-- Cart Item List -->
+      <div id="cart-items-list" class="flex-grow overflow-y-auto divide-y divide-slate-100 pr-1 space-y-2 mb-3">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Cart Empty Warning -->
+      <div id="cart-empty-message" class="hidden text-center py-8">
+        <p class="text-sm font-semibold text-slate-600">Your cart is empty.</p>
+        <p class="text-xs text-slate-400 mt-1">Browse the store and click "+ Add to Cart" on any medicine.</p>
+      </div>
+
+      <!-- Pricing Summary -->
+      <div id="cart-summary-section" class="bg-slate-50 rounded-xl p-3 border border-slate-200 text-xs space-y-1 mb-3">
+        <div class="flex justify-between text-slate-500">
+          <span>Total MRP:</span>
+          <span id="summary-mrp" class="font-mono">₹0.00</span>
+        </div>
+        <div class="flex justify-between text-emerald-700 font-medium">
+          <span>Total Discount Savings:</span>
+          <span id="summary-savings" class="font-mono">-₹0.00</span>
+        </div>
+        <div class="flex justify-between text-slate-900 font-bold text-sm pt-1.5 border-t border-slate-200">
+          <span>Final Estimated Bill:</span>
+          <span id="summary-final" class="font-mono text-emerald-700">₹0.00</span>
+        </div>
+      </div>
+
+      <!-- Customer Details for WhatsApp Submission -->
+      <form id="cart-checkout-form" class="space-y-2.5">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Your Name *</label>
+            <input type="text" id="cart-customer-name" required placeholder="e.g. Rahul Sharma" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Contact Number *</label>
+            <input type="tel" id="cart-customer-phone" required placeholder="e.g. 9876543210" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Delivery Address / Clinic Details</label>
+          <input type="text" id="cart-customer-address" placeholder="e.g. Main Road, Opp SBI Bank, Bihar" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+          <button type="button" id="clear-cart-btn" class="px-3 py-1.5 text-rose-600 hover:text-rose-800 text-xs font-semibold">
+            Clear Cart
+          </button>
+          <div class="flex gap-2">
+            <button type="button" id="cancel-cart-btn" class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">
+              Continue Shopping
+            </button>
+            <button type="submit" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+              <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.54 1.861.819 2.796.819 3.18 0 5.767-2.587 5.767-5.766.001-3.182-2.585-5.766-5.767-5.766zm9.969 5.766c0 5.518-4.482 10-10 10-1.748 0-3.385-.45-4.815-1.242l-5.185 1.358 1.381-5.052c-.886-1.488-1.381-3.228-1.381-5.064 0-5.518 4.482-10 10-10s10 4.482 10 10z"/></svg>
+              Send Order on WhatsApp
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: OWNER BILLING & RECEIPT GENERATOR -->
+  <!-- ========================================== -->
+  <div id="billing-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Generate Retail / Wholesale Cash Memo</h3>
+          <p class="text-xs text-slate-500">Prepare official itemized bill for counter customers</p>
+        </div>
+        <button id="close-billing-modal" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <!-- Add Item to Memo Form -->
+      <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 mb-4">
+        <h4 class="text-xs font-bold text-slate-800 mb-2">Add Medicine to Cash Memo</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-4 gap-2">
+          <div class="sm:col-span-2">
+            <select id="bill-select-med" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <!-- Populated via JS -->
+            </select>
+          </div>
+          <div>
+            <input type="number" id="bill-item-qty" min="1" value="1" placeholder="Quantity" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <button type="button" id="bill-add-item-btn" class="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg transition">
+              + Add to Bill
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Customer / Doctor Details -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-700 mb-1">Customer / Patient Name</label>
+          <input type="text" id="bill-cust-name" placeholder="Walk-in Customer" value="Walk-in Customer" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-700 mb-1">Prescribed By Doctor</label>
+          <input type="text" id="bill-doctor-name" placeholder="Dr. Self / Local Clinic" value="Dr. Local Clinic" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[11px] font-semibold text-slate-700 mb-1">Payment Method</label>
+          <select id="bill-payment-mode" class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="Cash">Cash</option>
+            <option value="UPI / PhonePe / GPay">UPI / QR Code</option>
+            <option value="Debit Card">Debit / Credit Card</option>
+            <option value="Wholesale Credit">Wholesale Credit</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Preview of Current Bill -->
+      <div class="border border-slate-200 rounded-xl overflow-hidden mb-4">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-100 text-slate-600 font-semibold uppercase text-[10px]">
+            <tr>
+              <th class="py-2 px-3">Item & Batch</th>
+              <th class="py-2 px-2 text-center">Qty</th>
+              <th class="py-2 px-2 text-right">MRP</th>
+              <th class="py-2 px-2 text-right">Disc %</th>
+              <th class="py-2 px-3 text-right">Amount</th>
+              <th class="py-2 px-2 text-center">Action</th>
+            </tr>
+          </thead>
+          <tbody id="billing-items-body" class="divide-y divide-slate-100">
+            <!-- Populated via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Printable Cash Memo Container -->
+      <div id="printable-receipt-area" class="border-2 border-slate-800 p-4 rounded-xl bg-white text-slate-900 text-xs mb-4">
+        <div class="text-center border-b border-slate-300 pb-2 mb-2">
+          <h2 id="receipt-shop-name" class="text-base font-bold uppercase tracking-wide">Sanjivani Medical & Pharmacy</h2>
+          <p id="receipt-shop-address" class="text-[11px] text-slate-600">Station Road, Near Main Chowk, Bihar</p>
+          <p class="text-[10px] text-slate-500">Retail & Wholesale Drug License Chemist • Mobile: <span id="receipt-shop-phone">919876543210</span></p>
+          <span class="inline-block mt-1 font-bold text-xs uppercase bg-slate-100 px-3 py-0.5 rounded border border-slate-300">Retail Cash Memo</span>
+        </div>
+
+        <div class="flex justify-between text-[11px] mb-2 border-b border-slate-200 pb-1">
+          <div>
+            <p><strong>Bill No:</strong> <span id="receipt-bill-no">MED-2026-101</span></p>
+            <p><strong>Customer:</strong> <span id="receipt-cust-name">Walk-in Customer</span></p>
+          </div>
+          <div class="text-right">
+            <p><strong>Date:</strong> <span id="receipt-date">20-Oct-2026</span></p>
+            <p><strong>Doctor:</strong> <span id="receipt-doc-name">Dr. Local Clinic</span></p>
+          </div>
+        </div>
+
+        <div id="receipt-table-content" class="mb-3">
+          <!-- Item rows for print -->
+        </div>
+
+        <div class="border-t border-slate-300 pt-2 flex justify-between items-center text-xs">
+          <div>
+            <p class="text-[10px] text-slate-500">Payment: <span id="receipt-pay-mode" class="font-semibold text-slate-800">Cash</span></p>
+            <p class="text-[9px] text-slate-400">Medicines sold without doctor prescription cannot be returned.</p>
+          </div>
+          <div class="text-right">
+            <p class="text-sm font-bold">Total Net Amount: <span id="receipt-total-amount" class="text-emerald-800">₹0.00</span></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-200">
+        <button type="button" id="cancel-billing-btn" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">
+          Close
+        </button>
+        <div class="flex gap-2">
+          <button type="button" id="print-receipt-btn" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+            Print Cash Receipt
+          </button>
+          <button type="button" id="complete-sale-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+            Save & Deduct Stock
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: OWNER PIN SECURITY PROMPT -->
+  <!-- ========================================== -->
+  <div id="pin-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl text-center">
+      <div class="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+      </div>
+      <h3 class="text-base font-bold text-slate-900">Owner Security Authentication</h3>
+      <p class="text-xs text-slate-500 mt-1 mb-4">Please enter your secret 4-digit PIN to access inventory controls and store settings.</p>
+
+      <form id="pin-form" class="space-y-4">
+        <div>
+          <input type="password" id="input-owner-pin" maxlength="8" autofocus placeholder="Enter PIN (Default: 1234)" 
+                 class="w-full text-center text-lg tracking-widest font-mono py-2.5 px-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          <p id="pin-error-msg" class="text-[11px] text-rose-600 font-medium mt-1.5 hidden">Incorrect PIN. Please try again.</p>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 pt-2">
+          <button type="button" id="cancel-pin-btn" class="w-1/2 py-2 border border-slate-200 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">
+            Cancel
+          </button>
+          <button type="submit" class="w-1/2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+            Unlock Portal
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: PRESCRIPTION UPLOAD & WHATSAPP -->
+  <!-- ========================================== -->
+  <div id="prescription-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Order with Doctor's Prescription</h3>
+          <p class="text-xs text-slate-500">Quick WhatsApp order with your prescription slip photo</p>
+        </div>
+        <button id="close-prescription-modal" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <form id="prescription-form" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Patient / Customer Full Name *</label>
+          <input type="text" id="presc-patient-name" required placeholder="e.g. Ramesh Kumar" 
+                 class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Your Mobile / WhatsApp Number *</label>
+          <input type="tel" id="presc-patient-phone" required placeholder="e.g. 9876543210" 
+                 class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Select Prescription Photo / File *</label>
+          <input type="file" id="presc-file-input" accept="image/*,.pdf" 
+                 class="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer">
+          <p class="text-[11px] text-slate-400 mt-1">Accepts camera photos or image files.</p>
+        </div>
+
+        <!-- Image Preview Container -->
+        <div id="presc-preview-container" class="hidden border border-slate-200 rounded-xl p-2 bg-slate-50 text-center">
+          <p class="text-[10px] text-slate-500 mb-1 font-semibold">Prescription Slip Preview:</p>
+          <img id="presc-preview-img" src="" alt="Prescription Preview" class="max-h-40 mx-auto rounded-lg object-contain shadow-sm">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Delivery Address or Special Note</label>
+          <textarea id="presc-note" rows="2" placeholder="e.g. Please deliver by this evening at Near Shiv Mandir, Bihar" 
+                    class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        </div>
+
+        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-start gap-2">
+          <svg class="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <p>Clicking below will format your prescription request and open WhatsApp directly with our pharmacist. You can attach your selected photo directly in WhatsApp chat!</p>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2 border-t border-slate-200">
+          <button type="button" id="cancel-prescription-btn" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.54 1.861.819 2.796.819 3.18 0 5.767-2.587 5.767-5.766.001-3.182-2.585-5.766-5.767-5.766zm9.969 5.766c0 5.518-4.482 10-10 10-1.748 0-3.385-.45-4.815-1.242l-5.185 1.358 1.381-5.052c-.886-1.488-1.381-3.228-1.381-5.064 0-5.518 4.482-10 10-10s10 4.482 10 10z"/></svg>
+            Send via WhatsApp
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ADD / EDIT MEDICINE -->
+  <!-- ========================================== -->
+  <div id="medicine-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+        <h3 id="modal-title" class="text-lg font-bold text-slate-900">Add Medicine Stock</h3>
+        <button id="close-med-modal" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <form id="medicine-form" class="space-y-4">
+        <input type="hidden" id="form-med-id">
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Medicine Name *</label>
+            <input type="text" id="form-name" required placeholder="e.g. Paracetamol 650mg" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Company / Manufacturer *</label>
+            <input type="text" id="form-company" required placeholder="e.g. Cipla / Sun Pharma" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Category</label>
+            <select id="form-category" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+              <option value="Pain & Fever">Pain & Fever</option>
+              <option value="Antibiotics">Antibiotics</option>
+              <option value="Antacids & Gastro">Antacids & Gastro</option>
+              <option value="Diabetes Care">Diabetes Care</option>
+              <option value="Cardiology">Cardiology</option>
+              <option value="Vitamins & Immunity">Vitamins & Immunity</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Batch Number *</label>
+            <input type="text" id="form-batch" required placeholder="e.g. BT-9821" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Available Stock (Units) *</label>
+            <input type="number" id="form-stock" required min="0" placeholder="150" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Manufacturing Date (Mfg) *</label>
+            <input type="date" id="form-mfg" required 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Expiry Date (Exp) *</label>
+            <input type="date" id="form-exp" required 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">MRP (₹) *</label>
+            <input type="number" step="0.01" id="form-mrp" required placeholder="100.00" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Retail Discount % *</label>
+            <input type="number" step="0.1" id="form-retail-disc" required placeholder="10" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Wholesale Discount % *</label>
+            <input type="number" step="0.1" id="form-wholesale-disc" required placeholder="25" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Wholesale Minimum Order Quantity (MOQ Units)</label>
+          <input type="number" id="form-wholesale-moq" required placeholder="10" 
+                 class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+
+        <div class="flex justify-end gap-2 pt-3 border-t border-slate-200">
+          <button type="button" id="cancel-med-btn" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition">
+            Save Medicine
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ADD CUSTOMER REVIEW -->
+  <!-- ========================================== -->
+  <div id="review-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
+        <h3 class="text-base font-bold text-slate-900">Add Customer Review</h3>
+        <button id="close-review-modal" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+      </div>
+
+      <form id="review-form" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Your Name / Clinic Name</label>
+          <input type="text" id="review-name" required placeholder="e.g. Dr. Rajesh Kumar / Amit Verma" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Customer Type</label>
+          <select id="review-type" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="Retail Customer">Retail Patient / Customer</option>
+            <option value="Wholesale Clinic / Chemist">Wholesale Buyer / Clinic</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Rating</label>
+          <select id="review-rating" class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="5">⭐⭐⭐⭐⭐ (5/5 Excellent)</option>
+            <option value="4">⭐⭐⭐⭐ (4/5 Very Good)</option>
+            <option value="3">⭐⭐⭐ (3/5 Good)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1">Feedback / Comment</label>
+          <textarea id="review-comment" rows="3" required placeholder="Always genuine medicines with clear expiry dates and quick WhatsApp delivery..." class="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"></textarea>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" id="cancel-review-btn" class="px-3 py-1.5 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">Cancel</button>
+          <button type="submit" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition">Submit Review</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 mt-12 py-6 text-center text-xs text-slate-500">
+    <p>© 2026 MediStock Pharmacy Platform. Built for local chemists, doctors, and customers in Bihar.</p>
+  </footer>
+
+  <!-- ========================================== -->
+  <!-- APP JAVASCRIPT LOGIC -->
+  <!-- ========================================== -->
+  <script>
+    // Initial Seed Data
+    const DEFAULT_SHOP_INFO = {
+      name: "Sanjivani Medical & Pharmacy",
+      phone: "919876543210",
+      address: "Station Road, Near Main Chowk, Bihar"
+    };
+
+    const DEFAULT_PIN = "1234";
+
+    const DEFAULT_MEDICINES = [
+      {
+        id: "med-1",
+        name: "Dolo 650 Tablet",
+        company: "Micro Labs Ltd",
+        category: "Pain & Fever",
+        batch: "ML-6502",
+        mfg: "2026-03-15",
+        exp: "2028-02-28",
+        mrp: 34.00,
+        retailDiscount: 10,
+        wholesaleDiscount: 22,
+        wholesaleMoq: 20,
+        stock: 140
+      },
+      {
+        id: "med-2",
+        name: "Augmentin 625 Duo",
+        company: "GSK Pharmaceuticals",
+        category: "Antibiotics",
+        batch: "GSK-9941",
+        mfg: "2026-01-10",
+        exp: "2027-06-30",
+        mrp: 205.50,
+        retailDiscount: 12,
+        wholesaleDiscount: 26,
+        wholesaleMoq: 10,
+        stock: 45
+      },
+      {
+        id: "med-3",
+        name: "Pan-D Capsule (Pantoprazole + Domperidone)",
+        company: "Alkem Laboratories",
+        category: "Antacids & Gastro",
+        batch: "ALK-3321",
+        mfg: "2026-04-01",
+        exp: "2027-12-31",
+        mrp: 199.00,
+        retailDiscount: 15,
+        wholesaleDiscount: 30,
+        wholesaleMoq: 15,
+        stock: 80
+      },
+      {
+        id: "med-4",
+        name: "Glycomet-GP 1 Tablet",
+        company: "USV Ltd",
+        category: "Diabetes Care",
+        batch: "USV-8820",
+        mfg: "2026-02-12",
+        exp: "2027-10-31",
+        mrp: 125.00,
+        retailDiscount: 10,
+        wholesaleDiscount: 24,
+        wholesaleMoq: 20,
+        stock: 8 // Critical low stock example (<10)
+      },
+      {
+        id: "med-5",
+        name: "Telma 40mg Tablet",
+        company: "Glenmark Pharma",
+        category: "Cardiology",
+        batch: "GLN-7714",
+        mfg: "2025-11-20",
+        exp: "2027-04-30",
+        mrp: 142.00,
+        retailDiscount: 12,
+        wholesaleDiscount: 25,
+        wholesaleMoq: 20,
+        stock: 90
+      },
+      {
+        id: "med-6",
+        name: "Becosules Z Capsules",
+        company: "Pfizer Ltd",
+        category: "Vitamins & Immunity",
+        batch: "PFZ-1092",
+        mfg: "2026-05-01",
+        exp: "2027-11-30",
+        mrp: 52.00,
+        retailDiscount: 8,
+        wholesaleDiscount: 20,
+        wholesaleMoq: 30,
+        stock: 5 // Critical low stock example (<10)
+      }
+    ];
+
+    const DEFAULT_REVIEWS = [
+      {
+        id: "rev-1",
+        name: "Dr. Arvind Sinha (City Clinic)",
+        type: "Wholesale Buyer / Clinic",
+        rating: 5,
+        comment: "Consistently reliable wholesale pricing with fresh batch stocks. WhatsApp delivery is always on time for my clinic."
+      },
+      {
+        id: "rev-2",
+        name: "Rameshwar Prasad",
+        type: "Retail Customer",
+        rating: 5,
+        comment: "Very transparent shop! Being able to see the manufacturing and expiry date before placing an order on WhatsApp gives huge confidence."
+      },
+      {
+        id: "rev-3",
+        name: "Kavita Devi",
+        type: "Retail Customer",
+        rating: 4,
+        comment: "Genuine medicines and genuine discount. Prompt WhatsApp reply when requesting prescriptions."
+      }
+    ];
+
+    // State Variables
+    let currentMode = "retail"; // "retail" or "wholesale"
+    let currentTab = "customer"; // "customer" or "owner"
+    let isOwnerAuthenticated = false;
+    let ownerTableFilter = "all"; // "all", "low", "exp"
+
+    let shopInfo = loadData("med_shop_info", DEFAULT_SHOP_INFO);
+    let ownerPin = loadData("med_shop_pin", DEFAULT_PIN);
+    let medicines = loadData("med_shop_medicines", DEFAULT_MEDICINES);
+    let reviews = loadData("med_shop_reviews", DEFAULT_REVIEWS);
+
+    // Cart State: Array of { medId, qty }
+    let cart = loadData("med_shop_cart", []);
+
+    // Billing / Cash Memo Temporary Items: Array of { medId, qty, rate, discount, amount }
+    let currentBillItems = [];
+
+    // Persistence Helpers
+    function loadData(key, fallback) {
+      try {
+        const stored = localStorage.getItem(key);
+        return stored ? JSON.parse(stored) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    function saveData(key, data) {
+      try {
+        localStorage.setItem(key, JSON.stringify(data));
+      } catch (e) {
+        console.error("Storage error:", e);
+      }
+    }
+
+    // Toast Notification System
+    function showToast(message, type = "success") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+      const bgColor = type === "success" ? "bg-emerald-600" : type === "error" ? "bg-rose-600" : "bg-slate-800";
+      toast.className = `${bgColor} text-white text-xs px-4 py-2.5 rounded-lg shadow-lg pointer-events-auto flex items-center justify-between gap-3 transform transition-all duration-300 translate-y-2 opacity-0`;
+      toast.innerHTML = `
+        <span>${message}</span>
+        <button class="text-white/80 hover:text-white font-bold">&times;</button>
+      `;
+      container.appendChild(toast);
+
+      toast.querySelector("button").addEventListener("click", () => {
+        toast.remove();
+      });
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3500);
+    }
+
+    // UI Updates
+    function updateShopHeader() {
+      document.getElementById("header-shop-name").textContent = shopInfo.name;
+      document.getElementById("header-shop-address").innerHTML = `
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        ${shopInfo.address}
+      `;
+      
+      const cleanPhone = shopInfo.phone.replace(/[^0-9]/g, "");
+      const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent("Hello " + shopInfo.name + ", I want to enquire about medicine availability.")}`;
+      document.getElementById("header-wa-btn").href = waUrl;
+
+      // Update Printable Bill Headers
+      document.getElementById("receipt-shop-name").textContent = shopInfo.name;
+      document.getElementById("receipt-shop-address").textContent = shopInfo.address;
+      document.getElementById("receipt-shop-phone").textContent = shopInfo.phone;
+
+      // Populate Owner Form Fields
+      document.getElementById("edit-shop-name").value = shopInfo.name;
+      document.getElementById("edit-shop-phone").value = shopInfo.phone;
+      document.getElementById("edit-shop-address").value = shopInfo.address;
+      document.getElementById("edit-shop-pin").value = "";
+    }
+
+    function calculatePrice(med) {
+      const isWholesale = currentMode === "wholesale";
+      const discount = isWholesale ? med.wholesaleDiscount : med.retailDiscount;
+      const finalPrice = med.mrp - (med.mrp * (discount / 100));
+      return {
+        discount,
+        finalPrice: finalPrice.toFixed(2),
+        numPrice: finalPrice,
+        isWholesale
+      };
+    }
+
+    // Cart Operations
+    function updateCartBadge() {
+      const totalCount = cart.reduce((sum, item) => sum + item.qty, 0);
+      document.getElementById("header-cart-count").textContent = totalCount;
+
+      let totalPrice = 0;
+      cart.forEach(item => {
+        const med = medicines.find(m => m.id === item.medId);
+        if (med) {
+          const pricing = calculatePrice(med);
+          totalPrice += pricing.numPrice * item.qty;
+        }
+      });
+      document.getElementById("header-cart-total").textContent = `₹${totalPrice.toFixed(2)}`;
+    }
+
+    // Enhanced Add To Cart with instant feedback & unmissable alert
+    let cartPopupTimeout;
+    function showCartPopupAlert(medName, qty) {
+      const popup = document.getElementById("cart-popup-alert");
+      const nameEl = document.getElementById("popup-med-name");
+      const detailEl = document.getElementById("popup-med-detail");
+      
+      nameEl.textContent = `Added "${medName}" to Cart!`;
+      detailEl.textContent = `Quantity in cart: ${qty} units • Click to view total bill`;
+
+      popup.classList.remove("hidden");
+      requestAnimationFrame(() => {
+        popup.classList.remove("opacity-0", "translate-y-[-10px]");
+      });
+
+      clearTimeout(cartPopupTimeout);
+      cartPopupTimeout = setTimeout(() => {
+        popup.classList.add("opacity-0", "translate-y-[-10px]");
+        setTimeout(() => popup.classList.add("hidden"), 300);
+      }, 4000);
+    }
+
+    function addToCart(medId, btnElement) {
+      const med = medicines.find(m => m.id === medId);
+      if (!med) return;
+
+      const minQty = currentMode === "wholesale" ? med.wholesaleMoq : 1;
+      const existing = cart.find(item => item.medId === medId);
+
+      let currentItemQty = minQty;
+      if (existing) {
+        existing.qty += 1;
+        currentItemQty = existing.qty;
+      } else {
+        cart.push({ medId: medId, qty: minQty });
+      }
+
+      saveData("med_shop_cart", cart);
+      updateCartBadge();
+      showToast(`Added ${med.name} to cart!`, "success");
+      showCartPopupAlert(med.name, currentItemQty);
+
+      // Visual feedback on the Add to Cart button itself
+      if (btnElement) {
+        const originalContent = btnElement.innerHTML;
+        btnElement.innerHTML = `<svg class="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg><span>✓ Added!</span>`;
+        btnElement.classList.remove("bg-slate-900", "hover:bg-slate-800");
+        btnElement.classList.add("bg-emerald-600", "ring-2", "ring-emerald-300");
+
+        setTimeout(() => {
+          btnElement.innerHTML = originalContent;
+          btnElement.classList.remove("bg-emerald-600", "ring-2", "ring-emerald-300");
+          btnElement.classList.add("bg-slate-900", "hover:bg-slate-800");
+        }, 1600);
+      }
+
+      // Pulse Header Cart Button
+      const headerCartBtn = document.getElementById("open-cart-btn");
+      if (headerCartBtn) {
+        headerCartBtn.classList.add("scale-110", "bg-emerald-700");
+        setTimeout(() => headerCartBtn.classList.remove("scale-110", "bg-emerald-700"), 350);
+      }
+    }
+
+    function renderCartModal() {
+      const container = document.getElementById("cart-items-list");
+      const emptyMsg = document.getElementById("cart-empty-message");
+      const summarySec = document.getElementById("cart-summary-section");
+      const modeBadge = document.getElementById("cart-mode-badge");
+
+      modeBadge.textContent = currentMode === "wholesale" ? "Wholesale (Bulk Mode)" : "Retail Mode";
+      modeBadge.className = currentMode === "wholesale" 
+        ? "text-[10px] font-semibold bg-cyan-100 text-cyan-800 px-2 py-0.5 rounded-full"
+        : "text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full";
+
+      if (cart.length === 0) {
+        container.innerHTML = "";
+        emptyMsg.classList.remove("hidden");
+        summarySec.classList.add("hidden");
+        return;
+      }
+
+      emptyMsg.classList.add("hidden");
+      summarySec.classList.remove("hidden");
+
+      let totalMrp = 0;
+      let totalFinal = 0;
+
+      container.innerHTML = cart.map((item, index) => {
+        const med = medicines.find(m => m.id === item.medId);
+        if (!med) return "";
+
+        const pricing = calculatePrice(med);
+        const itemMrpTotal = med.mrp * item.qty;
+        const itemFinalTotal = pricing.numPrice * item.qty;
+        totalMrp += itemMrpTotal;
+        totalFinal += itemFinalTotal;
+
+        const isBelowMoq = currentMode === "wholesale" && item.qty < med.wholesaleMoq;
+
+        return `
+          <div class="py-2.5 flex items-center justify-between gap-2">
+            <div class="flex-grow">
+              <h5 class="font-bold text-xs text-slate-800">${med.name}</h5>
+              <div class="text-[11px] text-slate-500">
+                Batch: <span class="font-mono text-slate-700">${med.batch}</span> • ₹${pricing.finalPrice}/unit (${pricing.discount}% off)
+              </div>
+              ${isBelowMoq ? `
+                <div class="text-[10px] font-semibold text-rose-600">
+                  ⚠️ Wholesale MOQ is ${med.wholesaleMoq} units
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Qty Stepper -->
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <button class="cart-qty-minus w-6 h-6 rounded bg-slate-200 text-slate-700 font-bold flex items-center justify-center hover:bg-slate-300 text-xs" data-index="${index}">-</button>
+              <span class="w-8 text-center font-bold text-xs font-mono">${item.qty}</span>
+              <button class="cart-qty-plus w-6 h-6 rounded bg-slate-200 text-slate-700 font-bold flex items-center justify-center hover:bg-slate-300 text-xs" data-index="${index}">+</button>
+            </div>
+
+            <div class="w-20 text-right flex-shrink-0">
+              <span class="font-bold text-xs text-slate-900 block font-mono">₹${itemFinalTotal.toFixed(2)}</span>
+              <button class="cart-remove-item text-[10px] text-rose-500 hover:text-rose-700 font-semibold" data-index="${index}">Remove</button>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      const totalSavings = totalMrp - totalFinal;
+      document.getElementById("summary-mrp").textContent = `₹${totalMrp.toFixed(2)}`;
+      document.getElementById("summary-savings").textContent = `-₹${totalSavings.toFixed(2)}`;
+      document.getElementById("summary-final").textContent = `₹${totalFinal.toFixed(2)}`;
+
+      // Attach Cart Listeners
+      container.querySelectorAll(".cart-qty-plus").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          cart[idx].qty += 1;
+          saveData("med_shop_cart", cart);
+          renderCartModal();
+          updateCartBadge();
+        });
+      });
+
+      container.querySelectorAll(".cart-qty-minus").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          if (cart[idx].qty > 1) {
+            cart[idx].qty -= 1;
+          } else {
+            cart.splice(idx, 1);
+          }
+          saveData("med_shop_cart", cart);
+          renderCartModal();
+          updateCartBadge();
+        });
+      });
+
+      container.querySelectorAll(".cart-remove-item").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          cart.splice(idx, 1);
+          saveData("med_shop_cart", cart);
+          renderCartModal();
+          updateCartBadge();
+        });
+      });
+    }
+
+    function renderMedicines() {
+      const grid = document.getElementById("medicine-grid");
+      const emptyState = document.getElementById("empty-state");
+      const searchTerm = document.getElementById("search-input").value.toLowerCase().trim();
+      const categoryFilter = document.getElementById("filter-category").value;
+
+      const filtered = medicines.filter(m => {
+        const matchesSearch = m.name.toLowerCase().includes(searchTerm) ||
+                              m.company.toLowerCase().includes(searchTerm) ||
+                              m.batch.toLowerCase().includes(searchTerm) ||
+                              m.category.toLowerCase().includes(searchTerm);
+        const matchesCategory = categoryFilter === "all" || m.category === categoryFilter;
+        return matchesSearch && matchesCategory;
+      });
+
+      if (filtered.length === 0) {
+        grid.innerHTML = "";
+        emptyState.classList.remove("hidden");
+        return;
+      }
+
+      emptyState.classList.add("hidden");
+      grid.innerHTML = filtered.map(med => {
+        const pricing = calculatePrice(med);
+        const cleanPhone = shopInfo.phone.replace(/[^0-9]/g, "");
+        const orderText = currentMode === "wholesale" 
+          ? `Hello ${shopInfo.name}, I want to place a WHOLESALE order for: ${med.name} (Batch: ${med.batch}, Company: ${med.company}). Minimum MOQ: ${med.wholesaleMoq} units. Wholesale Price: ₹${pricing.finalPrice}/unit.`
+          : `Hello ${shopInfo.name}, I want to order: ${med.name} (Batch: ${med.batch}, Company: ${med.company}). Retail Price: ₹${pricing.finalPrice} (MRP ₹${med.mrp.toFixed(2)} with ${med.retailDiscount}% OFF).`;
+        
+        const waLink = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(orderText)}`;
+
+        // Expiry Status
+        const expDate = new Date(med.exp);
+        const today = new Date();
+        const diffDays = Math.ceil((expDate - today) / (1000 * 60 * 60 * 24));
+        let expiryBadge = `<span class="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Exp: ${med.exp}</span>`;
+        if (diffDays < 60 && diffDays > 0) {
+          expiryBadge = `<span class="text-[11px] font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Exp Soon: ${med.exp}</span>`;
+        } else if (diffDays <= 0) {
+          expiryBadge = `<span class="text-[11px] font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">Expired: ${med.exp}</span>`;
+        }
+
+        // Low stock condition: Critical under 10 units
+        const isCriticalLow = med.stock < 10;
+        const isModerateLow = med.stock >= 10 && med.stock < 20;
+
+        return `
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between">
+            <div>
+              <div class="flex items-start justify-between gap-2 mb-1.5">
+                <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded">
+                  ${med.category}
+                </span>
+                <span class="text-[10px] font-semibold text-slate-500">
+                  Batch: <strong class="text-slate-800 font-mono">${med.batch}</strong>
+                </span>
+              </div>
+
+              <h4 class="text-base font-bold text-slate-900 leading-snug">${med.name}</h4>
+              <p class="text-xs text-slate-600 font-medium mb-3">By: <span class="text-slate-800">${med.company}</span></p>
+
+              <!-- Dates & Batch Details -->
+              <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-100 space-y-1.5 mb-3 text-xs">
+                <div class="flex items-center justify-between text-slate-600">
+                  <span>Mfg Date:</span>
+                  <span class="font-medium text-slate-800">${med.mfg}</span>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-slate-600">Expiry Date:</span>
+                  ${expiryBadge}
+                </div>
+                <div class="flex items-center justify-between text-slate-600">
+                  <span>Stock Available:</span>
+                  ${isCriticalLow ? `
+                    <span class="text-rose-600 font-bold bg-rose-50 px-2 py-0.5 rounded border border-rose-200 animate-pulse">
+                      ⚠️ Only ${med.stock} units left!
+                    </span>
+                  ` : isModerateLow ? `
+                    <span class="text-amber-600 font-semibold">
+                      ${med.stock} units (Low Stock)
+                    </span>
+                  ` : `
+                    <span class="font-medium text-emerald-700">
+                      ${med.stock} units (In Stock)
+                    </span>
+                  `}
+                </div>
+              </div>
+            </div>
+
+            <!-- Price Breakdown & Actions -->
+            <div class="pt-3 border-t border-slate-100 space-y-2">
+              <div class="flex items-baseline justify-between">
+                <div>
+                  <div class="text-[11px] text-slate-400 line-through">MRP ₹${med.mrp.toFixed(2)}</div>
+                  <div class="text-lg font-bold text-slate-900">
+                    ₹${pricing.finalPrice}
+                    <span class="text-xs font-semibold text-emerald-600">(${pricing.discount}% OFF)</span>
+                  </div>
+                </div>
+                ${currentMode === "wholesale" ? `
+                  <div class="text-right">
+                    <span class="inline-block text-[10px] font-bold text-cyan-800 bg-cyan-50 border border-cyan-200 px-2 py-0.5 rounded">
+                      Wholesale MOQ: ${med.wholesaleMoq} units
+                    </span>
+                  </div>
+                ` : `
+                  <div class="text-right">
+                    <span class="text-[10px] text-slate-500">Retail Strip/Bottle</span>
+                  </div>
+                `}
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="grid grid-cols-2 gap-2">
+                <button class="add-to-cart-btn w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2 px-2.5 rounded-lg text-xs shadow-sm transition flex items-center justify-center gap-1" data-id="${med.id}">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                  <span>Add to Cart</span>
+                </button>
+
+                <a href="${waLink}" target="_blank" rel="noopener noreferrer" 
+                   class="w-full inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2 px-2 rounded-lg text-xs shadow-sm transition">
+                  <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+                    <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.698c.969.54 1.861.819 2.796.819 3.18 0 5.767-2.587 5.767-5.766.001-3.182-2.585-5.766-5.767-5.766zm9.969 5.766c0 5.518-4.482 10-10 10-1.748 0-3.385-.45-4.815-1.242l-5.185 1.358 1.381-5.052c-.886-1.488-1.381-3.228-1.381-5.064 0-5.518 4.482-10 10-10s10 4.482 10 10z"/>
+                  </svg>
+                  <span class="truncate">${currentMode === "wholesale" ? 'Order Wholesale via WhatsApp' : 'Order Now on WhatsApp'}</span>
+                </a>
+              </div>
+
+            </div>
+
+          </div>
+        `;
+      }).join("");
+
+      // Attach Add to Cart Listeners
+      grid.querySelectorAll(".add-to-cart-btn").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const button = e.currentTarget;
+          addToCart(button.dataset.id, button);
+        });
+      });
+    }
+
+    function renderReviews() {
+      const container = document.getElementById("reviews-container");
+      container.innerHTML = reviews.map(rev => `
+        <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-bold text-slate-800">${rev.name}</span>
+              <span class="text-amber-500 text-xs">${'★'.repeat(rev.rating)}${'☆'.repeat(5 - rev.rating)}</span>
+            </div>
+            <span class="inline-block text-[10px] text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded font-medium mb-2 border border-emerald-100">
+              ${rev.type}
+            </span>
+            <p class="text-xs text-slate-600 italic">"${rev.comment}"</p>
+          </div>
+        </div>
+      `).join("");
+    }
+
+    function renderOwnerDashboard() {
+      // Metrics
+      document.getElementById("stat-total-medicines").textContent = medicines.length;
+      
+      const lowStockCount = medicines.filter(m => m.stock < 10).length;
+      document.getElementById("stat-low-stock").textContent = lowStockCount;
+
+      const today = new Date();
+      const nearExpCount = medicines.filter(m => {
+        const diff = Math.ceil((new Date(m.exp) - today) / (1000 * 60 * 60 * 24));
+        return diff < 60;
+      }).length;
+      document.getElementById("stat-near-expiry").textContent = nearExpCount;
+      document.getElementById("stat-reviews").textContent = reviews.length;
+
+      // Filter displayed medicines in table
+      let tableList = medicines;
+      const label = document.getElementById("owner-table-filter-label");
+      if (ownerTableFilter === "low") {
+        tableList = medicines.filter(m => m.stock < 10);
+        label.textContent = `Showing Critical Low Stock (< 10 units) - ${tableList.length} items`;
+      } else if (ownerTableFilter === "exp") {
+        tableList = medicines.filter(m => {
+          const diff = Math.ceil((new Date(m.exp) - today) / (1000 * 60 * 60 * 24));
+          return diff < 60;
+        });
+        label.textContent = `Showing Near Expiry (< 60 days) - ${tableList.length} items`;
+      } else {
+        label.textContent = `Showing all inventory medicines - ${medicines.length} total`;
+      }
+
+      // Table Rows
+      const tbody = document.getElementById("owner-table-body");
+      if (tableList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-slate-400">No medicines match this filter.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = tableList.map(med => `
+        <tr class="hover:bg-slate-50 transition">
+          <td class="py-3 px-4 font-medium text-slate-900">
+            <div>${med.name}</div>
+            <div class="text-[11px] text-slate-500">${med.company} • <span class="text-emerald-700">${med.category}</span></div>
+          </td>
+          <td class="py-3 px-4 font-mono font-medium text-slate-800">${med.batch}</td>
+          <td class="py-3 px-4 text-slate-600">
+            <div><span class="text-slate-400">M:</span> ${med.mfg}</div>
+            <div><span class="text-slate-400">E:</span> <strong class="text-slate-800">${med.exp}</strong></div>
+          </td>
+          <td class="py-3 px-4 font-semibold text-slate-900">₹${med.mrp.toFixed(2)}</td>
+          <td class="py-3 px-4 text-emerald-700 font-semibold">${med.retailDiscount}%</td>
+          <td class="py-3 px-4 text-cyan-700 font-semibold">${med.wholesaleDiscount}% <span class="text-slate-400 text-[10px] font-normal">(Min ${med.wholesaleMoq})</span></td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[11px] font-bold ${med.stock < 10 ? 'bg-rose-100 text-rose-800' : med.stock < 20 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-800'}">
+              ${med.stock} ${med.stock < 10 ? '⚠️ LOW' : ''}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-right space-x-2">
+            <button class="edit-med-btn text-emerald-600 hover:text-emerald-800 font-semibold" data-id="${med.id}">Edit</button>
+            <button class="delete-med-btn text-rose-500 hover:text-rose-700 font-semibold" data-id="${med.id}">Delete</button>
+          </td>
+        </tr>
+      `).join("");
+
+      // Attach dynamic listeners for Edit and Delete
+      tbody.querySelectorAll(".edit-med-btn").forEach(btn => {
+        btn.addEventListener("click", () => openEditMedicine(btn.dataset.id));
+      });
+      tbody.querySelectorAll(".delete-med-btn").forEach(btn => {
+        btn.addEventListener("click", () => deleteMedicine(btn.dataset.id));
+      });
+    }
+
+    // Modal Operations: Medicine Stock
+    function openAddMedicineModal() {
+      document.getElementById("modal-title").textContent = "Add New Medicine Stock";
+      document.getElementById("medicine-form").reset();
+      document.getElementById("form-med-id").value = "";
+      document.getElementById("medicine-modal").classList.remove("hidden");
+    }
+
+    function openEditMedicine(id) {
+      const med = medicines.find(m => m.id === id);
+      if (!med) return;
+
+      document.getElementById("modal-title").textContent = "Edit Medicine Stock";
+      document.getElementById("form-med-id").value = med.id;
+      document.getElementById("form-name").value = med.name;
+      document.getElementById("form-company").value = med.company;
+      document.getElementById("form-category").value = med.category;
+      document.getElementById("form-batch").value = med.batch;
+      document.getElementById("form-mfg").value = med.mfg;
+      document.getElementById("form-exp").value = med.exp;
+      document.getElementById("form-mrp").value = med.mrp;
+      document.getElementById("form-retail-disc").value = med.retailDiscount;
+      document.getElementById("form-wholesale-disc").value = med.wholesaleDiscount;
+      document.getElementById("form-wholesale-moq").value = med.wholesaleMoq;
+      document.getElementById("form-stock").value = med.stock;
+
+      document.getElementById("medicine-modal").classList.remove("hidden");
+    }
+
+    function closeMedicineModal() {
+      document.getElementById("medicine-modal").classList.add("hidden");
+    }
+
+    function deleteMedicine(id) {
+      medicines = medicines.filter(m => m.id !== id);
+      saveData("med_shop_medicines", medicines);
+      renderMedicines();
+      renderOwnerDashboard();
+      showToast("Medicine deleted from inventory", "info");
+    }
+
+    // Cash Memo & Billing Modal Logic
+    function populateBillingMedicineSelect() {
+      const select = document.getElementById("bill-select-med");
+      select.innerHTML = medicines.map(m => `
+        <option value="${m.id}">${m.name} (Batch: ${m.batch}) - Stock: ${m.stock} - MRP ₹${m.mrp.toFixed(2)}</option>
+      `).join("");
+    }
+
+    function renderBillingItems() {
+      const tbody = document.getElementById("billing-items-body");
+      const receiptTable = document.getElementById("receipt-table-content");
+
+      if (currentBillItems.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-slate-400">No medicines added to this cash memo yet.</td></tr>`;
+        receiptTable.innerHTML = `<p class="text-center text-slate-400 py-2">No items</p>`;
+        document.getElementById("receipt-total-amount").textContent = "₹0.00";
+        return;
+      }
+
+      let grandTotal = 0;
+
+      tbody.innerHTML = currentBillItems.map((item, index) => {
+        const med = medicines.find(m => m.id === item.medId);
+        if (!med) return "";
+        grandTotal += item.amount;
+        return `
+          <tr class="hover:bg-slate-50">
+            <td class="py-2 px-3">
+              <div class="font-bold">${med.name}</div>
+              <div class="text-[10px] text-slate-400">Batch: ${med.batch} • Exp: ${med.exp}</div>
+            </td>
+            <td class="py-2 px-2 text-center font-mono font-semibold">${item.qty}</td>
+            <td class="py-2 px-2 text-right font-mono">₹${med.mrp.toFixed(2)}</td>
+            <td class="py-2 px-2 text-right font-mono text-emerald-700">${item.discount}%</td>
+            <td class="py-2 px-3 text-right font-mono font-bold">₹${item.amount.toFixed(2)}</td>
+            <td class="py-2 px-2 text-center">
+              <button class="bill-del-item text-rose-500 hover:text-rose-700 font-bold" data-index="${index}">&times;</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      // Render for printable receipt
+      receiptTable.innerHTML = `
+        <table class="w-full text-left text-[11px] border-collapse">
+          <thead>
+            <tr class="border-b border-slate-300 font-semibold text-slate-700">
+              <th class="py-1">Item Description</th>
+              <th class="py-1">Batch</th>
+              <th class="py-1">Exp</th>
+              <th class="py-1 text-center">Qty</th>
+              <th class="py-1 text-right">Rate</th>
+              <th class="py-1 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200">
+            ${currentBillItems.map(item => {
+              const med = medicines.find(m => m.id === item.medId);
+              if (!med) return "";
+              const rate = med.mrp - (med.mrp * (item.discount / 100));
+              return `
+                <tr>
+                  <td class="py-1 font-medium">${med.name}</td>
+                  <td class="py-1 font-mono">${med.batch}</td>
+                  <td class="py-1">${med.exp}</td>
+                  <td class="py-1 text-center">${item.qty}</td>
+                  <td class="py-1 text-right">₹${rate.toFixed(2)}</td>
+                  <td class="py-1 text-right font-semibold">₹${item.amount.toFixed(2)}</td>
+                </tr>
+              `;
+            }).join("")}
+          </tbody>
+        </table>
+      `;
+
+      document.getElementById("receipt-total-amount").textContent = `₹${grandTotal.toFixed(2)}`;
+
+      // Attach remove item
+      tbody.querySelectorAll(".bill-del-item").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const idx = parseInt(btn.dataset.index, 10);
+          currentBillItems.splice(idx, 1);
+          renderBillingItems();
+        });
+      });
+    }
+
+    
+    // ==========================================
+    // EXCEL IMPORT & EXPORT AUTOMATION (SheetJS)
+    // ==========================================
+    let pendingExcelMedicines = [];
+
+    // 1. Download Standardized Sample Excel Template
+    function downloadExcelTemplate() {
+      if (typeof XLSX === "undefined") {
+        showToast("Excel engine loading, please try again in a second", "error");
+        return;
+      }
+
+      const templateData = [
+        {
+          "Medicine Name": "Dolo 650 Tablet",
+          "Company": "Micro Labs Ltd",
+          "Category": "Pain & Fever",
+          "Batch No": "ML-6502",
+          "Mfg Date": "2026-03-15",
+          "Exp Date": "2028-02-28",
+          "MRP": 34.00,
+          "Retail Discount %": 10,
+          "Wholesale Discount %": 22,
+          "Wholesale MOQ": 20,
+          "Stock Units": 140
+        },
+        {
+          "Medicine Name": "Augmentin 625 Duo",
+          "Company": "GSK Pharmaceuticals",
+          "Category": "Antibiotics",
+          "Batch No": "GSK-9941",
+          "Mfg Date": "2026-01-10",
+          "Exp Date": "2027-06-30",
+          "MRP": 205.50,
+          "Retail Discount %": 12,
+          "Wholesale Discount %": 26,
+          "Wholesale MOQ": 10,
+          "Stock Units": 45
+        },
+        {
+          "Medicine Name": "Pan-D Capsule",
+          "Company": "Alkem Laboratories",
+          "Category": "Antacids & Gastro",
+          "Batch No": "ALK-3321",
+          "Mfg Date": "2026-04-01",
+          "Exp Date": "2027-12-31",
+          "MRP": 199.00,
+          "Retail Discount %": 15,
+          "Wholesale Discount %": 30,
+          "Wholesale MOQ": 15,
+          "Stock Units": 80
+        },
+        {
+          "Medicine Name": "Azithromycin 500mg",
+          "Company": "Cipla Ltd",
+          "Category": "Antibiotics",
+          "Batch No": "CIP-4412",
+          "Mfg Date": "2026-02-15",
+          "Exp Date": "2028-01-31",
+          "MRP": 119.50,
+          "Retail Discount %": 12,
+          "Wholesale Discount %": 25,
+          "Wholesale MOQ": 15,
+          "Stock Units": 60
+        }
+      ];
+
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Medicine_Inventory");
+
+      // Auto-fit column widths
+      ws['!cols'] = [
+        { wch: 24 }, { wch: 20 }, { wch: 18 }, { wch: 14 },
+        { wch: 12 }, { wch: 12 }, { wch: 10 }, { wch: 18 },
+        { wch: 20 }, { wch: 15 }, { wch: 12 }
+      ];
+
+      XLSX.writeFile(wb, "Sanjivani_Medicine_Inventory_Template.xlsx");
+      showToast("Downloaded sample Excel template (.xlsx)!", "success");
+    }
+
+    // 2. Export Current Live Inventory to Excel
+    function exportLiveInventoryToExcel() {
+      if (typeof XLSX === "undefined") {
+        showToast("Excel engine loading, please try again in a moment", "error");
+        return;
+      }
+
+      const exportRows = medicines.map(m => ({
+        "Medicine Name": m.name,
+        "Company": m.company,
+        "Category": m.category,
+        "Batch No": m.batch,
+        "Mfg Date": m.mfg,
+        "Exp Date": m.exp,
+        "MRP": m.mrp,
+        "Retail Discount %": m.retailDiscount,
+        "Wholesale Discount %": m.wholesaleDiscount,
+        "Wholesale MOQ": m.wholesaleMoq,
+        "Stock Units": m.stock
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Current_Stock");
+      XLSX.writeFile(wb, `Medicine_Stock_${new Date().toISOString().slice(0,10)}.xlsx`);
+      showToast("Current inventory exported to Excel!", "success");
+    }
+
+    // 3. Process Uploaded Excel File
+    function processExcelFile(file) {
+      if (!file) {
+        showToast("Please choose an Excel file (.xlsx, .xls, .csv)", "error");
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+          const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+          if (!rawRows || rawRows.length === 0) {
+            showToast("No data rows found in this Excel file", "error");
+            return;
+          }
+
+          // Map and normalize various column name variations
+          pendingExcelMedicines = [];
+          rawRows.forEach((row, idx) => {
+            const getVal = (keys) => {
+              for (const k of keys) {
+                for (const rowKey of Object.keys(row)) {
+                  if (rowKey.trim().toLowerCase() === k.toLowerCase()) {
+                    return row[rowKey];
+                  }
+                }
+              }
+              return "";
+            };
+
+            const name = String(getVal(["Medicine Name", "Name", "Medicine", "Item Name", "Product"])).trim();
+            if (!name) return; // Skip blank rows
+
+            const company = String(getVal(["Company", "Manufacturer", "Mfg By", "Brand"])).trim() || "Generic / Standard";
+            const category = String(getVal(["Category", "Type", "Group"])).trim() || "General Medicine";
+            const batch = String(getVal(["Batch No", "Batch", "Batch Number", "Lot No"])).trim().toUpperCase() || ("BT-" + Math.floor(1000 + Math.random() * 9000));
+            
+            // Format dates
+            let mfg = getVal(["Mfg Date", "Mfg", "MFD", "Manufacturing Date"]);
+            if (mfg instanceof Date) mfg = mfg.toISOString().slice(0, 10);
+            mfg = String(mfg).slice(0, 10) || "2026-01-01";
+
+            let exp = getVal(["Exp Date", "Exp", "Expiry Date", "Expiry"]);
+            if (exp instanceof Date) exp = exp.toISOString().slice(0, 10);
+            exp = String(exp).slice(0, 10) || "2027-12-31";
+
+            const mrp = parseFloat(getVal(["MRP", "Price", "Rate"])) || 100.00;
+            const retailDisc = parseFloat(getVal(["Retail Discount %", "Retail Discount", "Discount %", "Disc %"])) || 10;
+            const wholesaleDisc = parseFloat(getVal(["Wholesale Discount %", "Wholesale Discount", "Bulk Discount"])) || 25;
+            const wholesaleMoq = parseInt(getVal(["Wholesale MOQ", "MOQ", "Min Qty"]), 10) || 10;
+            const stock = parseInt(getVal(["Stock Units", "Stock", "Quantity", "Qty", "Available Stock"]), 10) || 50;
+
+            pendingExcelMedicines.push({
+              id: "med-excel-" + Date.now() + "-" + idx,
+              name: name,
+              company: company,
+              category: category,
+              batch: batch,
+              mfg: mfg,
+              exp: exp,
+              mrp: mrp,
+              retailDiscount: retailDisc,
+              wholesaleDiscount: wholesaleDisc,
+              wholesaleMoq: wholesaleMoq,
+              stock: stock
+            });
+          });
+
+          if (pendingExcelMedicines.length === 0) {
+            showToast("Could not recognize medicine rows. Check column headers.", "error");
+            return;
+          }
+
+          // Show Preview Box
+          const previewBox = document.getElementById("excel-preview-box");
+          const previewBadge = document.getElementById("excel-preview-badge");
+          const previewTbody = document.getElementById("excel-preview-tbody");
+
+          previewBadge.textContent = `${pendingExcelMedicines.length} medicines parsed`;
+          previewTbody.innerHTML = pendingExcelMedicines.slice(0, 6).map(m => `
+            <tr>
+              <td class="py-1.5 px-3 font-semibold text-slate-900">${m.name}</td>
+              <td class="py-1.5 px-2 text-slate-600">${m.company}</td>
+              <td class="py-1.5 px-2 font-mono">${m.batch}</td>
+              <td class="py-1.5 px-2">${m.exp}</td>
+              <td class="py-1.5 px-2 font-bold font-mono">₹${m.mrp.toFixed(2)}</td>
+              <td class="py-1.5 px-2 font-bold ${m.stock < 10 ? 'text-rose-600' : 'text-slate-800'}">${m.stock}</td>
+            </tr>
+          `).join("");
+
+          if (pendingExcelMedicines.length > 6) {
+            previewTbody.innerHTML += `<tr><td colspan="6" class="text-center py-1 text-slate-400 italic font-mono">+ ${pendingExcelMedicines.length - 6} more rows ready to import</td></tr>`;
+          }
+
+          previewBox.classList.remove("hidden");
+          showToast(`Read ${pendingExcelMedicines.length} medicines from Excel. Please confirm import.`, "info");
+
+        } catch (err) {
+          console.error("Excel Read Error:", err);
+          showToast("Error parsing Excel file. Please ensure it is a valid .xlsx or .csv", "error");
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Event Listeners Initialization
+    document.addEventListener("DOMContentLoaded", () => {
+      // Popup View Cart button
+      document.getElementById("popup-view-cart-btn").addEventListener("click", () => {
+        const popup = document.getElementById("cart-popup-alert");
+        popup.classList.add("opacity-0", "translate-y-[-10px]");
+        setTimeout(() => popup.classList.add("hidden"), 300);
+        renderCartModal();
+        document.getElementById("cart-modal").classList.remove("hidden");
+      });
+
+      // Excel Import & Export Event Listeners
+      document.getElementById("download-excel-template-btn").addEventListener("click", downloadExcelTemplate);
+      document.getElementById("export-excel-btn").addEventListener("click", exportLiveInventoryToExcel);
+
+      const excelInput = document.getElementById("excel-file-input");
+      document.getElementById("import-excel-btn").addEventListener("click", () => {
+        if (!excelInput.files || excelInput.files.length === 0) {
+          showToast("Please choose an Excel (.xlsx/.csv) file first", "error");
+          return;
+        }
+        processExcelFile(excelInput.files[0]);
+      });
+
+      excelInput.addEventListener("change", (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          processExcelFile(e.target.files[0]);
+        }
+      });
+
+      document.getElementById("cancel-excel-preview-btn").addEventListener("click", () => {
+        document.getElementById("excel-preview-box").classList.add("hidden");
+        excelInput.value = "";
+        pendingExcelMedicines = [];
+      });
+
+      document.getElementById("confirm-excel-import-btn").addEventListener("click", () => {
+        if (pendingExcelMedicines.length === 0) return;
+
+        // Add to existing inventory (or update matching batches)
+        pendingExcelMedicines.forEach(newM => {
+          const existingIdx = medicines.findIndex(m => m.batch === newM.batch && m.name.toLowerCase() === newM.name.toLowerCase());
+          if (existingIdx !== -1) {
+            medicines[existingIdx] = newM;
+          } else {
+            medicines.unshift(newM);
+          }
+        });
+
+        saveData("med_shop_medicines", medicines);
+        renderMedicines();
+        renderOwnerDashboard();
+        updateCartBadge();
+
+        document.getElementById("excel-preview-box").classList.add("hidden");
+        excelInput.value = "";
+        showToast(`Successfully imported ${pendingExcelMedicines.length} medicines into inventory!`, "success");
+        pendingExcelMedicines = [];
+      });
+
+      updateShopHeader();
+      renderMedicines();
+      renderReviews();
+      updateCartBadge();
+
+      const navCustBtn = document.getElementById("nav-customer-btn");
+      const navOwnerBtn = document.getElementById("nav-owner-btn");
+      const custView = document.getElementById("customer-view");
+      const ownerView = document.getElementById("owner-view");
+      const pinModal = document.getElementById("pin-modal");
+      const pinForm = document.getElementById("pin-form");
+      const pinInput = document.getElementById("input-owner-pin");
+      const pinError = document.getElementById("pin-error-msg");
+      const cancelPinBtn = document.getElementById("cancel-pin-btn");
+      const lockOwnerBtn = document.getElementById("lock-owner-btn");
+
+      // Switch to Customer View
+      function switchToCustomerView() {
+        currentTab = "customer";
+        navCustBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-800 shadow-sm transition";
+        navOwnerBtn.className = "px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-md transition flex items-center gap-1.5";
+        custView.classList.remove("hidden");
+        ownerView.classList.add("hidden");
+      }
+
+      // Switch to Owner View
+      function switchToOwnerView() {
+        currentTab = "owner";
+        navOwnerBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-800 shadow-sm transition flex items-center gap-1.5";
+        navCustBtn.className = "px-3.5 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-md transition";
+        ownerView.classList.remove("hidden");
+        custView.classList.add("hidden");
+        renderOwnerDashboard();
+      }
+
+      navCustBtn.addEventListener("click", switchToCustomerView);
+
+      // Owner Button with PIN Gate
+      navOwnerBtn.addEventListener("click", () => {
+        if (isOwnerAuthenticated) {
+          switchToOwnerView();
+        } else {
+          pinInput.value = "";
+          pinError.classList.add("hidden");
+          pinModal.classList.remove("hidden");
+          setTimeout(() => pinInput.focus(), 100);
+        }
+      });
+
+      cancelPinBtn.addEventListener("click", () => {
+        pinModal.classList.add("hidden");
+      });
+
+      pinForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const enteredPin = pinInput.value.trim();
+        if (enteredPin === ownerPin) {
+          isOwnerAuthenticated = true;
+          pinModal.classList.add("hidden");
+          document.getElementById("nav-owner-label").textContent = "Owner Portal";
+          switchToOwnerView();
+          showToast("Owner authentication successful! Welcome.", "success");
+        } else {
+          pinError.classList.remove("hidden");
+          pinInput.value = "";
+          pinInput.focus();
+        }
+      });
+
+      // Lock Owner Session
+      lockOwnerBtn.addEventListener("click", () => {
+        isOwnerAuthenticated = false;
+        document.getElementById("nav-owner-label").textContent = "Owner Portal";
+        switchToCustomerView();
+        showToast("Owner Portal locked securely.", "info");
+      });
+
+      // Retail vs Wholesale Mode Switchers
+      const retailBtn = document.getElementById("mode-retail-btn");
+      const wholesaleBtn = document.getElementById("mode-wholesale-btn");
+      const bannerText = document.getElementById("mode-banner-text");
+
+      retailBtn.addEventListener("click", () => {
+        currentMode = "retail";
+        retailBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-900 shadow transition";
+        wholesaleBtn.className = "px-3.5 py-1.5 text-xs font-medium text-emerald-100 hover:text-white rounded-md transition";
+        bannerText.innerHTML = "Viewing <strong>Retail Prices</strong>. Individual strip/bottle pricing with standard customer discounts.";
+        renderMedicines();
+        updateCartBadge();
+        showToast("Switched to Retail Customer Mode", "info");
+      });
+
+      wholesaleBtn.addEventListener("click", () => {
+        currentMode = "wholesale";
+        wholesaleBtn.className = "px-3.5 py-1.5 text-xs font-semibold rounded-md bg-white text-slate-900 shadow transition";
+        retailBtn.className = "px-3.5 py-1.5 text-xs font-medium text-emerald-100 hover:text-white rounded-md transition";
+        bannerText.innerHTML = "Viewing <strong>Wholesale Bulk Prices</strong>. Special discounts for clinics and chemists with Minimum Order Quantity (MOQ).";
+        renderMedicines();
+        updateCartBadge();
+        showToast("Switched to Wholesale (Bulk) Mode", "info");
+      });
+
+      // Search & Filters
+      document.getElementById("search-input").addEventListener("input", renderMedicines);
+      document.getElementById("filter-category").addEventListener("change", renderMedicines);
+      document.getElementById("reset-filters-btn").addEventListener("click", () => {
+        document.getElementById("search-input").value = "";
+        document.getElementById("filter-category").value = "all";
+        renderMedicines();
+      });
+
+      // Cart Modal Actions
+      const cartModal = document.getElementById("cart-modal");
+      document.getElementById("open-cart-btn").addEventListener("click", () => {
+        renderCartModal();
+        cartModal.classList.remove("hidden");
+      });
+
+      document.getElementById("close-cart-modal").addEventListener("click", () => cartModal.classList.add("hidden"));
+      document.getElementById("cancel-cart-btn").addEventListener("click", () => cartModal.classList.add("hidden"));
+
+      document.getElementById("clear-cart-btn").addEventListener("click", () => {
+        cart = [];
+        saveData("med_shop_cart", cart);
+        renderCartModal();
+        updateCartBadge();
+        showToast("Cart cleared", "info");
+      });
+
+      // Cart Checkout via WhatsApp
+      document.getElementById("cart-checkout-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (cart.length === 0) {
+          showToast("Your cart is empty!", "error");
+          return;
+        }
+
+        const name = document.getElementById("cart-customer-name").value.trim();
+        const phone = document.getElementById("cart-customer-phone").value.trim();
+        const address = document.getElementById("cart-customer-address").value.trim();
+
+        let totalPayable = 0;
+        let totalMrp = 0;
+        const itemLines = [];
+
+        cart.forEach((item, idx) => {
+          const med = medicines.find(m => m.id === item.medId);
+          if (med) {
+            const pricing = calculatePrice(med);
+            const lineTotal = pricing.numPrice * item.qty;
+            totalPayable += lineTotal;
+            totalMrp += (med.mrp * item.qty);
+            itemLines.push(`${idx + 1}. ${med.name} (Batch: ${med.batch}) x ${item.qty} units = ₹${lineTotal.toFixed(2)}`);
+          }
+        });
+
+        const totalSaved = totalMrp - totalPayable;
+        const modeLabel = currentMode === "wholesale" ? "WHOLESALE BULK ORDER" : "RETAIL ORDER";
+
+        const waMessage = `*New Order: ${shopInfo.name}*\n` +
+          `Order Type: *${modeLabel}*\n` +
+          `Customer: ${name} (${phone})\n` +
+          `${address ? `Delivery Address: ${address}\n` : ''}` +
+          `\n*Items Ordered:*\n` +
+          itemLines.join("\n") +
+          `\n\n------------------------------\n` +
+          `Total MRP: ₹${totalMrp.toFixed(2)}\n` +
+          `Discount Saved: ₹${totalSaved.toFixed(2)}\n` +
+          `*Total Amount Payable: ₹${totalPayable.toFixed(2)}*\n` +
+          `------------------------------\n` +
+          `Please confirm availability, dispatch timing, and payment UPI. Thank you!`;
+
+        const cleanShopPhone = shopInfo.phone.replace(/[^0-9]/g, "");
+        const waUrl = `https://wa.me/${cleanShopPhone}?text=${encodeURIComponent(waMessage)}`;
+        window.open(waUrl, "_blank");
+
+        cartModal.classList.add("hidden");
+        showToast("Opening WhatsApp with your complete order!", "success");
+      });
+
+      // Prescription Modal Setup
+      const prescModal = document.getElementById("prescription-modal");
+      const prescFileInput = document.getElementById("presc-file-input");
+      const prescPreviewCont = document.getElementById("presc-preview-container");
+      const prescPreviewImg = document.getElementById("presc-preview-img");
+
+      document.getElementById("open-prescription-btn").addEventListener("click", () => {
+        document.getElementById("prescription-form").reset();
+        prescPreviewCont.classList.add("hidden");
+        prescModal.classList.remove("hidden");
+      });
+
+      document.getElementById("close-prescription-modal").addEventListener("click", () => prescModal.classList.add("hidden"));
+      document.getElementById("cancel-prescription-btn").addEventListener("click", () => prescModal.classList.add("hidden"));
+
+      prescFileInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (loadEvent) => {
+            prescPreviewImg.src = loadEvent.target.result;
+            prescPreviewCont.classList.remove("hidden");
+          };
+          reader.readAsDataURL(file);
+        } else {
+          prescPreviewCont.classList.add("hidden");
+        }
+      });
+
+      document.getElementById("prescription-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const patientName = document.getElementById("presc-patient-name").value.trim();
+        const patientPhone = document.getElementById("presc-patient-phone").value.trim();
+        const note = document.getElementById("presc-note").value.trim();
+        const hasFile = prescFileInput.files.length > 0;
+        const fileName = hasFile ? prescFileInput.files[0].name : "Slip attached in chat";
+
+        const cleanShopPhone = shopInfo.phone.replace(/[^0-9]/g, "");
+        const waMsg = `Hello ${shopInfo.name},\n\nI want to order medicines with my Doctor's Prescription.\n- Patient Name: ${patientName}\n- Contact Phone: ${patientPhone}\n- Prescription File: ${fileName}\n${note ? `- Delivery Note/Address: ${note}\n` : ""}\nPlease review the attached prescription photo, verify batch availability, and share the total bill & delivery time.`;
+
+        const waUrl = `https://wa.me/${cleanShopPhone}?text=${encodeURIComponent(waMsg)}`;
+        window.open(waUrl, "_blank");
+
+        prescModal.classList.add("hidden");
+        showToast("Opening WhatsApp! Please send your prescription photo.", "success");
+      });
+
+      // Modals: Add Medicine
+      document.getElementById("open-add-med-modal").addEventListener("click", openAddMedicineModal);
+      document.getElementById("close-med-modal").addEventListener("click", closeMedicineModal);
+      document.getElementById("cancel-med-btn").addEventListener("click", closeMedicineModal);
+
+      // Handle Medicine Form Submit
+      document.getElementById("medicine-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const id = document.getElementById("form-med-id").value;
+        const newMed = {
+          id: id || ("med-" + Date.now()),
+          name: document.getElementById("form-name").value.trim(),
+          company: document.getElementById("form-company").value.trim(),
+          category: document.getElementById("form-category").value,
+          batch: document.getElementById("form-batch").value.trim().toUpperCase(),
+          mfg: document.getElementById("form-mfg").value,
+          exp: document.getElementById("form-exp").value,
+          mrp: parseFloat(document.getElementById("form-mrp").value) || 0,
+          retailDiscount: parseFloat(document.getElementById("form-retail-disc").value) || 0,
+          wholesaleDiscount: parseFloat(document.getElementById("form-wholesale-disc").value) || 0,
+          wholesaleMoq: parseInt(document.getElementById("form-wholesale-moq").value, 10) || 1,
+          stock: parseInt(document.getElementById("form-stock").value, 10) || 0
+        };
+
+        if (id) {
+          const index = medicines.findIndex(m => m.id === id);
+          if (index !== -1) medicines[index] = newMed;
+          showToast("Medicine updated successfully!", "success");
+        } else {
+          medicines.unshift(newMed);
+          showToast("New medicine added to stock!", "success");
+        }
+
+        saveData("med_shop_medicines", medicines);
+        closeMedicineModal();
+        renderMedicines();
+        renderOwnerDashboard();
+        updateCartBadge();
+      });
+
+      // Billing & Cash Memo Modal
+      const billingModal = document.getElementById("billing-modal");
+      document.getElementById("open-billing-modal-btn").addEventListener("click", () => {
+        populateBillingMedicineSelect();
+        currentBillItems = [];
+        document.getElementById("receipt-bill-no").textContent = "MED-" + Date.now().toString().slice(-6);
+        document.getElementById("receipt-date").textContent = new Date().toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' });
+        renderBillingItems();
+        billingModal.classList.remove("hidden");
+      });
+
+      document.getElementById("close-billing-modal").addEventListener("click", () => billingModal.classList.add("hidden"));
+      document.getElementById("cancel-billing-btn").addEventListener("click", () => billingModal.classList.add("hidden"));
+
+      document.getElementById("bill-add-item-btn").addEventListener("click", () => {
+        const medId = document.getElementById("bill-select-med").value;
+        const qty = parseInt(document.getElementById("bill-item-qty").value, 10) || 1;
+        const med = medicines.find(m => m.id === medId);
+        if (!med) return;
+
+        const disc = currentMode === "wholesale" ? med.wholesaleDiscount : med.retailDiscount;
+        const rate = med.mrp - (med.mrp * (disc / 100));
+        const amount = rate * qty;
+
+        currentBillItems.push({
+          medId: med.id,
+          qty: qty,
+          discount: disc,
+          amount: amount
+        });
+
+        renderBillingItems();
+        showToast(`Added ${med.name} to Cash Memo`, "info");
+      });
+
+      // Update Printable Bill Live on Inputs
+      document.getElementById("bill-cust-name").addEventListener("input", (e) => {
+        document.getElementById("receipt-cust-name").textContent = e.target.value.trim() || "Walk-in Customer";
+      });
+      document.getElementById("bill-doctor-name").addEventListener("input", (e) => {
+        document.getElementById("receipt-doc-name").textContent = e.target.value.trim() || "Dr. Self";
+      });
+      document.getElementById("bill-payment-mode").addEventListener("change", (e) => {
+        document.getElementById("receipt-pay-mode").textContent = e.target.value;
+      });
+
+      // Print Receipt Action
+      document.getElementById("print-receipt-btn").addEventListener("click", () => {
+        if (currentBillItems.length === 0) {
+          showToast("Add at least 1 medicine to print receipt!", "error");
+          return;
+        }
+        window.print();
+      });
+
+      // Complete Sale & Deduct Stock
+      document.getElementById("complete-sale-btn").addEventListener("click", () => {
+        if (currentBillItems.length === 0) {
+          showToast("Please add items to complete sale", "error");
+          return;
+        }
+
+        currentBillItems.forEach(bItem => {
+          const med = medicines.find(m => m.id === bItem.medId);
+          if (med) {
+            med.stock = Math.max(0, med.stock - bItem.qty);
+          }
+        });
+
+        saveData("med_shop_medicines", medicines);
+        renderMedicines();
+        renderOwnerDashboard();
+        updateCartBadge();
+        billingModal.classList.add("hidden");
+        showToast("Sale completed and medicine stock deducted!", "success");
+      });
+
+      // Handle Shop Settings & PIN Form Submit
+      document.getElementById("shop-settings-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        shopInfo.name = document.getElementById("edit-shop-name").value.trim();
+        shopInfo.phone = document.getElementById("edit-shop-phone").value.trim();
+        shopInfo.address = document.getElementById("edit-shop-address").value.trim();
+
+        const newPin = document.getElementById("edit-shop-pin").value.trim();
+        if (newPin) {
+          ownerPin = newPin;
+          saveData("med_shop_pin", ownerPin);
+          showToast("Store details & Security PIN updated!", "success");
+        } else {
+          showToast("Store details updated!", "success");
+        }
+
+        saveData("med_shop_info", shopInfo);
+        updateShopHeader();
+        renderMedicines();
+      });
+
+      // Owner Table Filters
+      document.getElementById("view-all-table-btn").addEventListener("click", () => {
+        ownerTableFilter = "all";
+        renderOwnerDashboard();
+      });
+      document.getElementById("view-low-table-btn").addEventListener("click", () => {
+        ownerTableFilter = "low";
+        renderOwnerDashboard();
+      });
+      document.getElementById("view-exp-table-btn").addEventListener("click", () => {
+        ownerTableFilter = "exp";
+        renderOwnerDashboard();
+      });
+
+      document.getElementById("filter-metric-all").addEventListener("click", () => {
+        ownerTableFilter = "all";
+        renderOwnerDashboard();
+      });
+      document.getElementById("filter-metric-low").addEventListener("click", () => {
+        ownerTableFilter = "low";
+        renderOwnerDashboard();
+      });
+      document.getElementById("filter-metric-exp").addEventListener("click", () => {
+        ownerTableFilter = "exp";
+        renderOwnerDashboard();
+      });
+
+      // Review Modal
+      const reviewModal = document.getElementById("review-modal");
+      document.getElementById("add-review-modal-btn").addEventListener("click", () => {
+        document.getElementById("review-form").reset();
+        reviewModal.classList.remove("hidden");
+      });
+      document.getElementById("close-review-modal").addEventListener("click", () => reviewModal.classList.add("hidden"));
+      document.getElementById("cancel-review-btn").addEventListener("click", () => reviewModal.classList.add("hidden"));
+
+      document.getElementById("review-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+        const newReview = {
+          id: "rev-" + Date.now(),
+          name: document.getElementById("review-name").value.trim(),
+          type: document.getElementById("review-type").value,
+          rating: parseInt(document.getElementById("review-rating").value, 10),
+          comment: document.getElementById("review-comment").value.trim()
+        };
+        reviews.unshift(newReview);
+        saveData("med_shop_reviews", reviews);
+        reviewModal.classList.add("hidden");
+        renderReviews();
+        renderOwnerDashboard();
+        showToast("Thank you for your review!", "success");
+      });
+
+    });
+  </script>
+</body>
+</html>
